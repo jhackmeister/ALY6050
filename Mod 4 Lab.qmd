@@ -1,0 +1,89 @@
+---
+title: "Module 4 Lab"
+format: html
+editor: visual
+---
+
+Total energy in calories per Km
+
+E = (0.075\* (v-32)\^2 +20) / v  - where v = velocity in Km/Hr
+
+We need to find the speed that minimizes total energy spent per Km of flight
+
+Start with looking at relationship between E and v
+
+```{r}
+v <- seq(1, 200, by=1)
+E <- (0.075* (v-33)^2 +20) / v
+plot(v, E, 'l', main='Total Energy vs Velocity',
+     xlab='Velocity (Km/HR)', ylab='Total Energy (Calories/Km)')
+```
+
+Looks like the minimum energy is attained around v between 20-50.
+
+Zooming in
+
+```{r}
+v <- seq(35, 40, by=1)
+E <- (0.075* (v-33)^2 +20) / v
+plot(v, E, 'l', main='Total Energy vs Velocity',
+     xlab='Velocity (Km/HR)', ylab='Total Energy (Calories/Km)')
+```
+
+Looks like a good guess is v=37
+
+Using a table of v and E values, we can tell where E attains the minimum value.
+
+```{r}
+which.min(E)
+```
+
+And the speed v (in Km/Hr) corresponding to the minimum E value
+
+```{r}
+v[which.min(E)]
+```
+
+And the total minimized energy in calories per Km
+
+```{r}
+E[which.min(E)]
+```
+
+Now, we can use the optimise() function in R to solve the minimization problem.
+
+First, select an interval where you want the optimise() function to look for a minimum
+
+```{r}
+My_Interval <- c(30,40)
+```
+
+Next, define the model
+
+```{r}
+My_Function = function(v) (0.075*(v-33)^2+20) / v
+```
+
+Next, use both the Interval and Function as inputs for optimise()
+
+```{r}
+My_Optimization <- optimise(f = My_Function, interval = My_Interval,
+                            lower = min(My_Interval),
+                            upper = max(My_Interval),
+                            maximum = FALSE, # default is maximization
+                            tol = .Machine$double.eps^0.5) # error tolerance
+
+My_Optimization
+```
+
+```{r}
+paste('Energy Minimizing Speed:',
+      round(My_Optimization[[1]], 1), 'Km/Hr; or',
+      round(My_Optimization[[1]]/1.6, 1), 'Miles/Hr')
+```
+
+```{r}
+paste('The Minimum Energy:',
+      round(My_Optimization[[2]], 1), 'Calories per KM; or',
+      round(My_Optimization[[2]]*1.6, 1), 'Calories per Mile')
+```
