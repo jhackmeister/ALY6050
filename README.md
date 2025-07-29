@@ -1,7 +1,6 @@
 # ALY6050
-Course work for ALY 6050 - Enterprise Analytics
 
-Welcome, this repo represents the work done for ALY6040 : Data Mining for the Spring Quarter, 2025.
+Welcome, this repo represents the work done for ALY6050 : Introduction to Enterprise Analytics, Summer 2025.
 
 This course is part of the MPS Data Analytics program at Northeastern University.
 
