@@ -1,0 +1,289 @@
+---
+title: "Module 5 - Maximize Profits"
+subtitle: "ALY 6050 - August 10, 2025"
+author: "Jeff Hackmeister"
+format: pdf
+editor: visual
+---
+
+\newpage
+
+# Introduction
+
+This project works with data from a northern hardware company. They want to conduct a study around opening a new distribution center in the southeast. The plan is to start with renting a warehouse and office space in the new market. In the first phase of the expansion, they plan on only distributing their four main products - pressure washers, go-karts, generators, and water pumps.
+
+In preparation for the study, the company has provided data on product costs
+
+| Item                     | Cost (in dollars) |
+|--------------------------|-------------------|
+| Pressure washer          | 330               |
+| Go-kart                  | 370               |
+| Generator                | 410               |
+| Water Pumps (cases of 5) | 635               |
+
+: Product Costs (including transportation)
+
+They also provided their current selling price for each product.
+
+| Item            | Price (in dollars) |
+|-----------------|--------------------|
+| Pressure washer | 499.99             |
+| Go-kart         | 729.99             |
+| Generator       | 700.99             |
+| Water Pumps     | 269.99             |
+
+: Per Product Revenues
+
+The initial budget for product acquisition has been set at \$170,000 a month for the new location.
+
+The warehouse space has been identified and the following constraints have been identified in the space. The warehouse contains 82 shelves, each shelf is 30ft long by 5ft wide. All products are stored on pallets of the following sizes.
+
+| Item                            | Pallet size |
+|---------------------------------|-------------|
+| Pressure washer                 | 5ft X 5ft   |
+| Go-kart                         | 8ft X 5ft   |
+| Generator                       | 5ft X 5ft   |
+| Water Pumps (4 cases per pallet | 5ft X 5ft   |
+
+: Product Pallet Sizes
+
+Finally, the companies marketing department has committed to allocating a minimum of 30% of the total inventory to pressure washers and go-karts as well as to sell at least twice as many generators as water pumps.
+
+## Linear Programming Setup 
+
+In order to conduct a monthly analysis, a linear programming model will be developed to maximize profit for the new location. This requires creating mathematical formulation of the project constraints. With that foundation established, the lpSolve package from R will be used to fit the model and perform additional analysis.
+
+The first step is to load the lpSolve package and define the per unit profit for each item. For formulations, the following notations will be used.
+
+-   x1 = number of pressure washers to purchase
+
+-   x2 = number of go-karts to purchase
+
+-   x3 = number of generators to purchase
+
+-   x4 = number of water pump cases to purchase
+
+```{r}
+# load package
+library(lpSolve)
+
+# Determine profit per unit 
+pressure_washer_profit <- 499.99 - 330
+go_kart_profit <- 729.99 - 370
+generator_profit <- 700.99 - 410
+water_pump_profit <- (269.99 * 5) - 635 #cases of 5
+
+# Objective matrix
+constants <- c(pressure_washer_profit, go_kart_profit, generator_profit,
+               water_pump_profit)
+```
+
+For the budget constraints, the company has decided on a \$170,000 monthly budget. Therefore, the formula for the budget constraint can be expressed as 330x1 + 370x2 + 410x3 + 635x4 \<= 170,000 - or the sum of the cost of each item multiplied by the ammount purchased must be equal to or lower than \$170,000. This will be converted into a vector in R.
+
+```{r}
+budget_constraint <- c(330, 370, 410, 635)
+```
+
+For the space constraint, first a simple calculation of the number of shelves multiplied by the square footage for each shelf determines the total space available.
+
+```{r}
+total_space <- 82*30*5
+total_space
+```
+
+Then the space needed per product is formed into a vector.
+
+```{r}
+space_per_pressure_washer <- 5*5
+space_per_go_kart <- 8*5
+space_per_generator <- 5*5
+space_per_water_pump <- (5*5) / 4 #for 4 cases
+
+space_constraint <- c(space_per_pressure_washer, space_per_go_kart, 
+                      space_per_generator, space_per_water_pump)
+```
+
+Then the two constraints from the marketing department are formulated. First is the decision to allocation a minimum of 30% of the inventory to be devoted to pressure washers and go-karts. This can be expressed as 330*x1 + 370*x2 \>= 0.30 \* (330*x1 + 370*x2 + 410*x3 + 635*x4) which becomes a vector.
+
+```{r}
+marketing_constraint <- c(231, 259, -123, -190.5)
+```
+
+Next is the decision to sell twice as many generators as water pumps, which is expressed as x3 -10 \* x4 \>= 0 and becomes another vector
+
+```{r}
+generator_constraint <- c(0, 0, 1, -10)
+```
+
+To correctly format the data for lpSolve, all of the constraint vectors are formed into a matrix,
+
+```{r}
+constraint_matrix <- rbind(
+  budget_constraint,
+  space_constraint,
+  marketing_constraint,
+  generator_constraint
+)
+```
+
+the right side of the equations are formed into a vector,
+
+```{r}
+constraint_rhs <- c(
+  170000, # total budget
+  total_space,
+  0, # marketing >= 0
+  0 # generator >= 0
+)
+```
+
+and the directions of the equations are set.
+
+```{r}
+constraint_directions <- c("<=", "<=", ">=", ">=")
+```
+
+With all of the data created and properly formatted, the lp function can be called.
+
+```{r}
+solution <- lp(direction = "max",
+               objective.in = constants,
+               const.mat = constraint_matrix,
+               const.dir = constraint_directions,
+               const.rhs = constraint_rhs,
+               compute.sens = TRUE,
+               all.int = TRUE)
+
+```
+
+## Results and Analysis
+
+With the model fit, the results can be explored.
+
+```{r}
+#| label: Product mix optimization 
+names(solution$solution) <- c("Pressure Washers", "Go-Karts", 
+                              "Generators", "Water Pump Cases")
+optimal_mix <- solution$solution
+optimal_mix
+```
+
+From this, we can see that the optimal product mix, given all the predefined constraints, would be to purchase 152 go-karts, 240 generators, 24 cases of water pumps (120 total) and 0 pressure washers.
+
+```{r}
+#| label: Budget optimization 
+optimal_mix * budget_constraint
+sum(optimal_mix * budget_constraint)
+```
+
+This results in \$169,880 in spending, just below the monthly budget of \$170,000. This mix also satisfies the condition of selling twice as many generators as water pumps.
+
+```{r}
+#| label: Space Optimization
+optimal_mix * space_constraint
+sum(optimal_mix * space_constraint)
+total_space
+total_space - (sum(optimal_mix * space_constraint))
+```
+
+This also optimizes the warehouse space, leaving only 70 square feet of the 12,300 available in the warehouse.
+
+```{r}
+#| label: Profit
+optimal_mix * constants
+sum(optimal_mix * constants)
+```
+
+This mix would lead to a projected \$141,714.90 in monthly profit.
+
+Further analysis can be done with the duals report from lpSolve.
+
+```{r}
+solution$duals
+```
+
+To better interpret these results, a table is generated
+
+```{r}
+# Constraint names
+constraint_names <- c(
+  "Budget ≤ 170,000",
+  "Space ≤ 12,300 sq ft",
+  "Marketing ≥ 30% on washers/karts",
+  "Generators ≥ 2× water pump units"
+)
+
+# Variable bound names (non-negativity)
+bound_names <- c(
+  "Pressure Washers ≥ 0",
+  "Go-Karts ≥ 0",
+  "Generators ≥ 0",
+  "Water Pump Cases ≥ 0"
+)
+
+# Get duals from solution
+duals <- solution$duals
+
+# Create full label list
+all_labels <- c(constraint_names, bound_names)
+
+# Create data frame
+duals_table <- data.frame(
+  Constraint_or_Bound = all_labels,
+  Dual_Value = round(duals, 3)
+)
+print(duals_table)
+```
+
+The first three rows (budget, space, and the 30% allocation rule) have dual values of 0, meaning they are not constraining the model. The need to sell twice as many generators as water pumps has a dual value of -71.495, meaning it is creating \$71.50 of profitability slack per unit. If this constraint was lessened or removed, more profit could be realized.
+
+## Additional Questions
+
+### 5. Pressure Washers
+
+As seen in the duals report above, pressure washers are profitable in the model, but they are crowded out by space and generator volume constraints. To get pressure washers into the mix, the profit would need to increase by at least \$169.99
+
+```{r}
+min_price <- 330 + solution$duals[5]
+cat("Minimum selling price for pressure washers to enter the mix: $", 
+    round(min_price, 2), "\n")
+```
+
+### 6. Additional Budget
+
+From the duals report above, the budget constraint is not binding in the model. Therefore, additional budget would not increase profitability as long as the other constraints remain in the model.
+
+### 7. Warehouse Size
+
+The current model utilizes 99.4% of the total space available in the warehouse and it is a non-binding constraint on the model. As long as the current set of constraints remain in place from the marketing department, the warehouse size is not a factor in the profitability.
+
+```{r}
+#space utilization
+(sum(optimal_mix * space_constraint))/total_space
+# duals
+print(duals_table)
+```
+
+## Conclusion 
+
+After extensive analysis and consideration of the constraints placed on the expansion project into a new, southern market and optimized inventory model has been created.
+
+| Item | Purchase Mix | Space Allocation | Cost | Profit |
+|----|----|----|----|----|
+| Pressure washer | 0 | 0 | 0 | 0 |
+| Go-kart | 152 | 6080 | \$56,240 | \$54,718.48 |
+| Generator | 240 | 6000 | \$98,400 | \$69,837.60 |
+| Water Pumps (cases of 5) | 24 | 150 | \$15,240 | \$17,158.80 |
+| **Totals** | 416 | 12,230 | \$169,880 | \$141,714.90 |
+
+Analysis of the results indicate that the constraint of having to sell at least twice as many generators as water pumps is a binding constraint. Management should consider altering that constraint if possible to further maximize the profitability of this new facility.
+
+\newpage
+
+# References
+
+1.  Evans, J. R. (2013). Statistics, data analysis, and decision modeling: International Edition. Pearson Higher Ed.
+
+2.  Linnart Felkl M.Sc. (2020, May 14). *Simple linear programming with lpSolve in R*. YouTube. https://www.youtube.com/watch?v=998tIKXsVeY
+
+    ‌
